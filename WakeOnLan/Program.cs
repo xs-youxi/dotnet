@@ -13,10 +13,19 @@ namespace WakeOnLan
         {
             if (args.Count() < 1)
             {
-                Console.WriteLine("wol [mac-address]");
+                Console.WriteLine("WakeOnLan [mac-address] [mac-address] ...");
                 return;
             }
-            args.WakeOnLan();
+
+            var address = UdpClientExtension.GetAllNetworkInterfaces(NetworkInterfaceType.Ethernet)
+                .GetAddressInfo(UdpClientExtension.GetLocalAddress());
+            var broadcastAddress = address.Address.GetAddressBytes()
+                                .Zip(address.IPv4Mask.GetAddressBytes(), (p, q) => (byte)(p | (byte)~q))
+                                .ToArray();
+            var bcAddress = new IPAddress(broadcastAddress);
+            Console.WriteLine($"Local {address.Address}， Broadcast {bcAddress}");
+
+            args.WakeOnLan(bcAddress);
         }
     }
 }

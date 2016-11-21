@@ -10,16 +10,13 @@ namespace WakeOnLan
 {
     public static class UdpClientExtension
     {
-        public static async Task BroadcastPacketAsync(this IEnumerable<byte> packet, int port, string address = "255.255.255.255")
+        public static async Task BroadcastPacketAsync(this IEnumerable<byte> packet, int port, IPAddress bcAddress = null)
         {
             var sendBytes = packet.ToArray();
             try
             {
-                //IPAddress localAddress = GetLocalAddress();
-                //IPAddress mask = IPAddress.Parse("255.255.255.0");
-                //var broadCastAddress = new IPAddress((localAddress.ScopeId | ~mask.ScopeId) & 0x0ffffffff);
-
-                await new UdpClient().SendAsync(sendBytes, sendBytes.Length, address /* broadCastAddress.ToString() */, port);
+                var endPoint = new IPEndPoint(bcAddress ?? IPAddress.Broadcast, port);
+                await new UdpClient().SendAsync(sendBytes, sendBytes.Length, endPoint);
             }
             catch (Exception e)
             {
@@ -41,17 +38,19 @@ namespace WakeOnLan
                 .Where(d => d.NetworkInterfaceType == interfaceType)
                 .Where(e => e.OperationalStatus == OperationalStatus.Up)
                 .Select(f => f.GetIPProperties());
-        public static List<IPAddress> GetAddress(this IEnumerable<IPInterfaceProperties> interfaces)
+        public static IEnumerable<UnicastIPAddressInformation> GetAllAddressInfo(this IEnumerable<IPInterfaceProperties> interfaces)
         {
-            var addressList = new List<IPAddress>();
-            interfaces.ToList().ForEach(x =>
-            {
-                addressList.AddRange(x.UnicastAddresses
+            return interfaces.SelectMany(x =>
+                x.UnicastAddresses
                       .Where(q => q.Address.AddressFamily == AddressFamily.InterNetwork)
                       .Where(r => r.IsDnsEligible == true)
-                      .Select(s => s.Address));
-            });
-            return addressList;
+                      .Select(s => s));
+        }
+        public static UnicastIPAddressInformation GetAddressInfo(this IEnumerable<IPInterfaceProperties> interfaces, IPAddress address)
+        {
+            return interfaces.GetAllAddressInfo()
+                .Where(k => address.Equals(k.Address))
+                .FirstOrDefault();
         }
     }
 }
